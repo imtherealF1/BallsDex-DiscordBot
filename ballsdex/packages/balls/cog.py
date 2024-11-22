@@ -655,6 +655,8 @@ class Balls(commands.GroupCog, group_name=settings.players_group_cog_name):
         interaction: discord.Interaction,
         countryball: BallEnabledTransform | None = None,
         special: SpecialEnabledTransform | None = None,
+        attack_bonus: int | None = None,
+        health_bonus: int | None = None,
         shiny: bool | None = None,
         current_server: bool = False,
     ):
@@ -671,9 +673,27 @@ class Balls(commands.GroupCog, group_name=settings.players_group_cog_name):
             Whether you want to count shiny countryballs
         current_server: bool
             Only count countryballs caught in the current server
+        attack_bonus: int
+            Only count countryballs with a specific attack bonus.
+        health_bonus: int
+            Only count countryballs with a specific health bonus.
         """
         if interaction.response.is_done():
             return
+
+        if attack_bonus > settings.max_attack_bonus:
+            await interaction.response.send_message(
+                f"The `attack_bonus` cannot be more than {settings.max_attack_bonus}.",
+                ephemeral=True,
+            )
+            return
+        if health_bonus > settings.max_health_bonus:
+            await interaction.response.send_message(
+                f"The `health_bonus` cannot be more than {settings.max_health_bonus}.",
+                ephemeral=True,
+            )
+            return
+
         assert interaction.guild
         filters = {}
         if countryball:
@@ -684,6 +704,10 @@ class Balls(commands.GroupCog, group_name=settings.players_group_cog_name):
             filters["special"] = special
         if current_server:
             filters["server_id"] = interaction.guild.id
+        if attack_bonus:
+            filters["attack_bonus"] = attack_bonus
+        if health_bonus:
+            filters["health_bonus"] = health_bonus
         filters["player__discord_id"] = interaction.user.id
         await interaction.response.defer(ephemeral=True, thinking=True)
         balls = await BallInstance.filter(**filters).count()
@@ -692,7 +716,9 @@ class Balls(commands.GroupCog, group_name=settings.players_group_cog_name):
         shiny_str = "shiny " if shiny else ""
         special_str = f"{special.name} " if special else ""
         guild = f" caught in {interaction.guild.name}" if current_server else ""
+        atk_bonus = f"{attack_bonus}% ATK " if attack_bonus else ""
+        hp_bonus = f"{health_bonus}% HP " if health_bonus else ""
         await interaction.followup.send(
-            f"You have {balls} {special_str}{shiny_str}"
+            f"You have {balls} {special_str}{shiny_str}{atk_bonus}{hp_bonus}"
             f"{country}{settings.collectible_name}{plural}{guild}."
         )
