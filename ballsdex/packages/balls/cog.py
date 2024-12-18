@@ -621,6 +621,7 @@ class Balls(commands.GroupCog, group_name=settings.players_group_cog_name):
         special: SpecialEnabledTransform | None = None,
         shiny: bool | None = None,
         current_server: bool = False,
+        exclude_specials: bool = False,
     ):
         """
         Count how many countryballs you have.
@@ -628,17 +629,19 @@ class Balls(commands.GroupCog, group_name=settings.players_group_cog_name):
         Parameters
         ----------
         countryball: Ball
-            The countryball you want to count
+            The countryball you want to count.
         special: Special
-            The special you want to count
+            The special you want to count.
         shiny: bool
-            Whether you want to count shiny countryballs
+            Whether you want to count shiny countryballs.
         current_server: bool
-            Only count countryballs caught in the current server
+            Only count countryballs caught in the current server.
+        exclude_specials: bool
+            Whether to exclude specials.
         """
-        if interaction.response.is_done():
-            return
+        await interaction.response.defer(ephemeral=True, thinking=True)
         assert interaction.guild
+
         filters = {}
         if countryball:
             filters["ball"] = countryball
@@ -649,13 +652,16 @@ class Balls(commands.GroupCog, group_name=settings.players_group_cog_name):
         if current_server:
             filters["server_id"] = interaction.guild.id
         filters["player__discord_id"] = interaction.user.id
-        await interaction.response.defer(ephemeral=True, thinking=True)
+        if exclude_specials:
+            filters["special"] = None
+
         balls = await BallInstance.filter(**filters).count()
         country = f"{countryball.country} " if countryball else ""
         plural = "s" if balls > 1 or balls == 0 else ""
         shiny_str = "shiny " if shiny else ""
         special_str = f"{special.name} " if special else ""
         guild = f" caught in {interaction.guild.name}" if current_server else ""
+
         await interaction.followup.send(
             f"You have {balls} {special_str}{shiny_str}"
             f"{country}{settings.collectible_name}{plural}{guild}."
